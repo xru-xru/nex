@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "esnext",
+    "strict": false,
+    "alwaysStrict": false,
+    "noImplicitAny": false,
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": [
+      "dom",
+      "esnext",
+    ],
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "downlevelIteration": true,
+    "baseUrl": "./src",
+    "types": ["jest"],
+    "sourceMap": true
+  },
+  "include": [
+    "src/**/*",
+    "node_modules/cypress/types/cypress-expect.d.ts"
+  ],
+  "exclude": [
+    "src/test-utils/*.tsx",
+    "src/**/*.stories.tsx",
+    "src/**/**/__tests__/*.*",
+    "build",
+    "cypress",
+    "libs/*.js",
+    "node_modules",
+    "./node_modules",
+    "./node_modules/*",
+    "./node_modules/@types/node/index.d.ts"
+  ]
+}

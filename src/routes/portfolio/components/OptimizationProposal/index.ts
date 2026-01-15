@@ -1,0 +1,1 @@
+export { OptimizationProposal } from './OptimizationProposal';

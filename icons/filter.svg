@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: sketchtool 64 (101010) - https://sketch.com -->
+    <title>ABA4510C-BAA8-4A03-A9C2-C25ED0BC0A91</title>
+    <desc>Created with sketchtool.</desc>
+    <g id="🖥-Screens" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Dashboard-v2" transform="translate(-24.000000, -249.000000)" fill="#B7BAC7" fill-rule="nonzero">
+            <g id="Sidebar/Expanded/Normal">
+                <g id="Navigation">
+                    <g>
+                        <g id="Menu-items" transform="translate(20.000000, 158.000000)">
+                            <g id="Dashboard" transform="translate(4.000000, 91.000000)">
+                                <g id="filter">
+                                    <path d="M22.4985,0 L1.50178125,0 C0.169359375,0 -0.502921875,1.61657812 0.44109375,2.56064063 L9.00000164,11.1213281 L9.00000164,19.875 C8.99998335,20.3075428 9.18671043,20.7190328 9.51225,21.0038437 L12.51225,23.6280469 C13.4702813,24.4663125 15.0000016,23.8005469 15.0000016,22.4992031 L15.0000016,11.1213281 L23.5591406,2.56064063 C24.5013281,1.6185 23.8335938,0 22.4985,0 Z M13.5,10.5 L13.5,22.5 L10.5,19.875 L10.5,10.5 L1.5,1.5 L22.5,1.5 L13.5,10.5 Z" id="Shape"></path>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

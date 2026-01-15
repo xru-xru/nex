@@ -1,0 +1,28 @@
+const SvgCalendar = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    viewBox="0 0 48 48"
+    display="block"
+    fill="currentColor"
+    aria-hidden={true}
+    focusable={false}
+    role="presentation"
+    {...props}
+  >
+    <g fill="#674CED">
+      <circle cx={24} cy={24} r={24} fillOpacity={0.11} />
+      <path
+        fillOpacity={0.5}
+        d="M36.48 14.885a1.919 1.919 0 0 0-1.917-1.925H13.437a1.921 1.921 0 0 0-1.917 1.925v19.67a1.919 1.919 0 0 0 1.917 1.925h21.126a1.921 1.921 0 0 0 1.917-1.925v-19.67z"
+      />
+      <path d="M36.48 20.16v-5.28a1.92 1.92 0 0 0-1.917-1.92H13.437a1.919 1.919 0 0 0-1.917 1.92v5.28h24.96z" />
+      <path
+        fillOpacity={0.45}
+        d="M16.8 11.044c0-.532.431-.964.959-.964h.962c.53 0 .959.433.959.964v3.832a.963.963 0 0 1-.959.964h-.962a.962.962 0 0 1-.959-.964v-3.831zm11.52 0c0-.532.431-.964.959-.964h.962c.53 0 .959.433.959.964v3.832a.963.963 0 0 1-.959.964h-.962a.962.962 0 0 1-.959-.964v-3.831z"
+      />
+    </g>
+  </svg>
+);
+export default SvgCalendar;

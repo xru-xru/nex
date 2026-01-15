@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="168px" height="20px" viewBox="0 0 168 20" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Conservative</title>
+    <g id="List" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" fill-opacity="0.3">
+        <g id="Create-campaign---Step-3" transform="translate(-681.000000, -1077.000000)" fill="#05A8FA">
+            <g id="Group-7" transform="translate(649.000000, 944.000000)">
+                <g id="Group" transform="translate(0.000000, 77.000000)">
+                    <g id="Conservative" transform="translate(32.000000, 56.000000)">
+                        <path d="M84,-74 C85,-18 88.3333333,38 94,94 C81.5025177,94 86.7299805,94 74,94 C80,38 83.3333333,-18 84,-74 Z" id="Triangle" transform="translate(84.000000, 10.000000) rotate(-90.000000) translate(-84.000000, -10.000000) "></path>
+                        <path d="M84,-74 C84,-18 86.3333333,38 91,94 C78.5025177,94 89.7299805,94 77,94 C81.6666667,38 84,-18 84,-74 Z" id="Triangle" transform="translate(84.000000, 10.000000) rotate(-90.000000) translate(-84.000000, -10.000000) "></path>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

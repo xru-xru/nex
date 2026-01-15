@@ -1,0 +1,291 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_COMMIT_TAG'
+
+include:
+  - project: 'nexoya/cicd/ci-templates'
+    file: 'build-apps.yml'
+
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:22
+
+stages:
+  - prepare
+  - validate
+  - build
+  - build_test
+  - test
+  - deploy
+  - deploy_prod
+  - merge_request
+  - deliver
+
+variables:
+  GIT_DEPTH: 10
+  APP_NAME: ui-webapp
+  APP_HOSTNAME: app
+  USE_ALL_FQDNS: "true"
+
+  BUILD_DIR: k8s/buildpack
+
+  PACK_ADDITIONAL_ARGS: "--buildpack nexoyaregistry.azurecr.io/paketobuildpacks/nginx:0.17.24 --trust-builder"
+
+# https://gitlab.com/help/ci/caching/index.md
+# cache using branch name
+.npm-cache:
+  before_script:
+    - npm ci --cache .npm --prefer-offline &> /dev/null
+  cache:
+    paths:
+      - .npm/
+    policy: pull-push
+    key:
+      files:
+        - package-lock.json
+
+audit:
+  stage: validate
+  interruptible: true
+  allow_failure: false
+  script:
+    - npm run audit
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+
+validate:
+  stage: validate
+  extends: .npm-cache
+  interruptible: true
+  script:
+    - npm run validate
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+
+build:
+  stage: prepare
+  extends: .npm-cache
+  interruptible: true
+  variables:
+    CI: "false"
+  script:
+    - npm run build
+    - cd k8s/buildpack
+    - mv ../../build public
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TRIGGER == "trigger-sast-scan"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^(hotfix|fix|feature|feat|renovate)\/.*$/'
+  artifacts:
+    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    paths:
+      - k8s/buildpack/
+
+test-storybook:
+  stage: test
+  extends: .npm-cache
+  variables:
+    CI: "false"
+    PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
+  cache:
+    paths:
+      - .npm/
+      - .cache/ms-playwright/
+    policy: pull-push
+    key:
+      files:
+        - package-lock.json
+  interruptible: true
+  allow_failure: false
+  artifacts:
+    paths:
+      - storybook
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^(hotfix|fix|feature|feat|renovate)\/.*$/'
+  script:
+    - npx playwright install --with-deps chromium
+    - npm run test-storybook
+    - npx chromatic --project-token=$CHROMATIC_TOKEN --auto-accept-changes
+
+build-storybook:
+  stage: build
+  needs: []
+  extends: .npm-cache
+  variables:
+    CI: "false"
+  interruptible: true
+  allow_failure: true
+  script:
+    - npm run build-storybook
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TRIGGER == "trigger-sast-scan"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^(hotfix|fix|feature|feat|renovate)\/.*$/'
+  artifacts:
+    paths:
+      - storybook
+
+build_staging_k8s_buildpack:
+  extends: .build_staging_k8s_buildpack
+  needs:
+    - job: build
+      artifacts: true
+
+deploy_staging_k8s:
+  extends: .deploy_staging_k8s
+  needs:
+    - job: build_staging_k8s_buildpack
+      artifacts: false
+
+pages_storybook:
+  stage: deploy
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:latest
+  needs:
+    - job: build-storybook
+      artifacts: true
+  allow_failure: true
+  variables:
+    PAGES_PREFIX: "" # no prefix by default (run on the default branch)
+  environment:
+    name: "Pages ${PAGES_PREFIX}"
+    url: $CI_PAGES_URL
+  script:
+    - mkdir -p public
+    - cp -r storybook/* public/
+  pages:
+    publish: public
+    path_prefix: "$PAGES_PREFIX"
+    expire_in: "1 month"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^(hotfix|fix|feature|feat|renovate)\/.*$/'
+      variables:
+        PAGES_PREFIX: "mr-$CI_MERGE_REQUEST_IID"
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TRIGGER == "trigger-sast-scan"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+deploy_acceptance0_k8s:
+  image: "$AZ_CLI_IMAGE"
+  stage: deploy
+  needs:
+    - job: build_staging_k8s_buildpack
+  environment:
+    name: acceptance1
+    url: http://${APP_HOSTNAME}.staging.nexoya.io/
+  variables:
+    APP_NAME_BASE: ui-webapp
+    APP_NAME: ui-webapp-acceptance0
+    APP_HOSTNAME: app.acceptance0
+  script:
+  - az aks install-cli
+  - tdnf install -y --update wget
+  - wget https://github.com/k14s/kapp/releases/download/v0.53.0/kapp-linux-amd64 -O
+    /usr/local/bin/kapp && chmod +x /usr/local/bin/kapp
+  - wget https://github.com/k14s/ytt/releases/download/v0.31.0/ytt-linux-amd64 -O
+    /usr/local/bin/ytt && chmod +x /usr/local/bin/ytt
+  - az login --service-principal --username $AZ_GLOBAL_USERNAME --password $AZ_GLOBAL_PASSWORD
+    --tenant $AZ_TENANT
+  - az account set --subscription $AZ_GLOBAL_SUBSCRIPTION
+  - IMAGE_DIGEST=$(az acr repository show -n $AZ_REGISTRY --image ${APP_NAME_BASE}-k8s:ci-$CI_COMMIT_SHORT_SHA
+    --query digest -o tsv)
+  - az login --service-principal --username $AZ_STAGING_USERNAME --password $AZ_STAGING_PASSWORD
+    --tenant $AZ_TENANT
+  - az account set --subscription nexoya-staging
+  - az aks get-credentials --overwrite-existing --resource-group rg-nexoya-k8s-main-staging
+    --name k8s-nexoya-main-staging
+  - kubelogin convert-kubeconfig -l spn
+  - export AAD_SERVICE_PRINCIPAL_CLIENT_ID=$AZ_STAGING_USERNAME
+  - export AAD_SERVICE_PRINCIPAL_CLIENT_SECRET=$AZ_STAGING_PASSWORD
+  - |
+    ytt --ignore-unknown-comments --strict -f k8s/templates/ -f k8s/env/staging.yml \
+        --data-value-yaml fqdns=[${APP_HOSTNAME}.staging.nexoya.io] \
+        --data-value app_name=${APP_NAME}\
+        -v registry=${AZ_REGISTRY}.azurecr.io -v image=${APP_NAME_BASE}-k8s@$IMAGE_DIGEST | \
+        kapp -y deploy --diff-changes -a $APP_NAME -n $APP_NAME -f -
+  rules:
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_LABELS == "deploy::acceptance0"
+
+deploy_prod_k8s:
+  image: $AZ_CLI_IMAGE
+  stage: deploy_prod
+  needs: []
+  environment:
+    name: production
+    url: http://${APP_HOSTNAME}.nexoya.io/
+  script:
+    - az aks install-cli
+    - tdnf install -y --update wget
+    - wget https://github.com/k14s/kapp/releases/download/v0.53.0/kapp-linux-amd64 -O /usr/local/bin/kapp && chmod +x /usr/local/bin/kapp
+    - wget https://github.com/k14s/ytt/releases/download/v0.31.0/ytt-linux-amd64 -O /usr/local/bin/ytt && chmod +x /usr/local/bin/ytt
+
+    # login to global account (where the registry is) and grab the image sha which we use for deployment
+    - az login --service-principal --username $AZ_GLOBAL_USERNAME --password $AZ_GLOBAL_PASSWORD --tenant $AZ_TENANT
+    - az account set --subscription $AZ_GLOBAL_SUBSCRIPTION
+    - IMAGE_DIGEST=$(az acr repository show -n $AZ_REGISTRY --image ${APP_NAME}-k8s:ci-$CI_COMMIT_SHORT_SHA --query digest -o tsv)
+    # create tag (it's not used for deployment, but we just use it as a marker to see whats deployed (in the future, we can clean up all the unknown tags)
+    - az acr import --name $AZ_REGISTRY --image ${APP_NAME}-k8s:prod --source ${APP_NAME}-k8s:ci-$CI_COMMIT_SHORT_SHA --force --registry $AZ_REGISTRY
+
+    # login to env specific user and deploy the k8s deployment.
+    - az login --service-principal --username $AZ_PROD_USERNAME --password $AZ_PROD_PASSWORD --tenant $AZ_TENANT
+    - az account set --subscription nexoya-prod
+    - az aks get-credentials --overwrite-existing --resource-group rg-nexoya-k8s-main-prod --name k8s-nexoya-main-prod
+    - kubelogin convert-kubeconfig -l spn
+    - export AAD_SERVICE_PRINCIPAL_CLIENT_ID=$AZ_PROD_USERNAME
+    - export AAD_SERVICE_PRINCIPAL_CLIENT_SECRET=$AZ_PROD_PASSWORD
+    - |
+      if [ "$USE_ALL_FQDNS" = "true" ]; then
+          fqdns="["
+          sep=""
+          for domain in $BASE_DOMAINS; do
+              fqdns="$fqdns$sep\"${APP_HOSTNAME}.${domain}\""
+              sep=", "
+          done
+          fqdns="$fqdns]"
+      else
+          fqdns="[\"${APP_HOSTNAME}.${BASE_DOMAIN}\"]"
+      fi
+      echo "Passing to YTT: $fqdns"
+      ytt --ignore-unknown-comments --strict -f k8s/templates/ -f k8s/env/prod.yml \
+          --data-value-yaml fqdns="$fqdns" \
+          --data-value-yaml env_vars.REACT_APP_VERSION=${CI_COMMIT_TAG} \
+          -v registry=${AZ_REGISTRY}.azurecr.io -v image=${APP_NAME}-k8s@$IMAGE_DIGEST | \
+          kapp -y deploy --diff-changes -a $APP_NAME -n $APP_NAME -f -
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: manual
+      exists:
+        - 'k8s/env/prod.yml'
+
+artifact_download:
+  stage: prepare
+  script:
+    - mkdir artifacts_main
+    - pushd artifacts_main
+    - 'curl --location --output artifacts.zip "https://${CI_SERVER_HOST}/api/v4/projects/$CI_PROJECT_ID/jobs/artifacts/main/download?job=build&job_token=$CI_JOB_TOKEN"'
+    - unzip artifacts.zip
+    - popd
+  artifacts:
+    paths:
+      - artifacts_main/k8s/buildpack/
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+datadog_sourcemap:
+  stage: deliver
+  script:
+    - export DATADOG_SITE=datadoghq.eu
+    - npm install @Datadog/datadog-ci
+    - npx datadog-ci sourcemaps upload artifacts_main/k8s/buildpack/public --service nexoya-webapp --minified-path-prefix https://app.nexoya.io/ --release-version $CI_COMMIT_TAG
+  needs:
+    - job: artifact_download
+      artifacts: true
+    - job: deploy_prod_k8s
+  rules:
+    - if: '$CI_COMMIT_TAG'

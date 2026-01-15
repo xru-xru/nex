@@ -1,0 +1,12 @@
+#@ load("@ytt:data", "data")
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: #@ data.values.app_name
+spec:
+  type: ClusterIP
+  ports:
+    - port: #@ data.values.port
+  selector:
+    app: #@ data.values.app_name

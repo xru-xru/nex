@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="168px" height="67px" viewBox="0 0 168 67" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Moderate</title>
+    <defs>
+        <rect id="path-1" x="0" y="0" width="168" height="67" rx="5"></rect>
+    </defs>
+    <g id="List" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Create-campaign---Step-3" transform="translate(-937.000000, -1053.000000)">
+            <g id="Group-7" transform="translate(649.000000, 944.000000)">
+                <g id="Group" transform="translate(256.000000, 77.000000)">
+                    <g id="Moderate" transform="translate(32.000000, 32.000000)">
+                        <mask id="mask-2" fill="white">
+                            <use xlink:href="#path-1"></use>
+                        </mask>
+                        <g id="Mask"></g>
+                        <path d="M84,-50 C84.3333333,6 89.6666667,62 100,118 C75.0050354,118 93.4599609,118 68,118 C78.6666667,61.6666667 84,5.66666667 84,-50 Z" id="Triangle" fill-opacity="0.3" fill="#05A8FA" mask="url(#mask-2)" transform="translate(84.000000, 34.000000) rotate(-90.000000) translate(-84.000000, -34.000000) "></path>
+                        <path d="M84,-50 C84,6 86.3333333,62 91,118 C78.5025177,118 89.7299805,118 77,118 C81.6666667,62 84,6 84,-50 Z" id="Triangle" fill-opacity="0.3" fill="#05A8FA" mask="url(#mask-2)" transform="translate(84.000000, 34.000000) rotate(-90.000000) translate(-84.000000, -34.000000) "></path>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

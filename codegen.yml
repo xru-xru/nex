@@ -1,0 +1,15 @@
+overwrite: true
+schema: 'src/graphql/schema.json'
+documents: 'src/**/*.graphql'
+config:
+  skipTypename: false
+  typesPrefix: 'Nexoya'
+generates:
+  src/types/types.ts:
+    plugins:
+      - 'typescript'
+      - 'typescript-operations'
+      - 'typescript-react-apollo'
+  ./graphql.schema.json:
+    plugins:
+      - 'introspection'

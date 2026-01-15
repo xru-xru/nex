@@ -1,0 +1,98 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+
+#@ def security_context_spec():
+runAsUser: 1001 # https://github.com/orgs/paketo-buildpacks/discussions/188
+runAsGroup: 1000
+fsGroup: 1000
+#@ end
+
+#@ def security_context_container():
+privileged: false
+allowPrivilegeEscalation: false
+#@ end
+
+#@ def spot_toleration():
+key: 'kubernetes.azure.com/scalesetpriority'
+operator: 'Equal'
+value: 'spot'
+effect: 'NoSchedule'
+#@ end
+
+#@ def node_affinity(node_pool):
+requiredDuringSchedulingIgnoredDuringExecution:
+  nodeSelectorTerms:
+    - matchExpressions:
+        - key: nexoya_node_pool
+          operator: In
+          values:
+            -  #@ node_pool
+  #@ end
+
+  #@ def topology_spread_constraints(app_name):
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app: #@ app_name
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app: #@ app_name
+#@ end
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: #@ data.values.app_name
+spec:
+  replicas: #@ data.values.replicas
+  selector:
+    matchLabels:
+      app: #@ data.values.app_name
+  template:
+    metadata:
+      labels:
+        app: #@ data.values.app_name
+    spec:
+      securityContext: #@ security_context_spec()
+      tolerations:
+        -  #@ spot_toleration()
+      affinity:
+        nodeAffinity: #@ node_affinity(data.values.node_pool)
+      automountServiceAccountToken: false
+      containers:
+        - name: #@ data.values.app_name
+          image: #@ data.values.registry + '/' + data.values.image
+          securityContext: #@ security_context_container()
+          ports:
+            - containerPort: #@ data.values.port
+          readinessProbe:
+            tcpSocket:
+              port: #@ data.values.port
+          livenessProbe:
+            tcpSocket:
+              port: #@ data.values.port
+          resources:
+            requests:
+              memory: #@ data.values.memory.request
+            limits:
+              memory: #@ data.values.memory.limit
+          env:
+            - name: PORT
+              value: #@ str(data.values.port)
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          envFrom:
+            - secretRef:
+                name: #@ data.values.app_name + '-env'
+            - secretRef:
+                name: #@ data.values.app_name + '-secret'
+          command: ['/workspace/entrypoint.sh']
+      _: #@  template.replace(topology_spread_constraints(data.values.app_name))

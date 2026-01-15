@@ -1,0 +1,4 @@
+Contact: mailto:security@nexoya.com
+Expires: 2026-07-17T19:00:00.000Z
+Preferred-Languages: en, de
+Hiring: https://www.nexoya.com/careers/

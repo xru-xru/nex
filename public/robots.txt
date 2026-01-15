@@ -1,0 +1,195 @@
+import { NexoyaDailyMetric, NexoyaDailyOptimizationMetric, NexoyaFunnelStepPerformance } from '../../../types';
+
+import { PartialFunnelStep } from '../../../controllers/PortfolioController';
+
+import { diffCount, isToday, isTomorrow } from 'utils/dates';
+
+export const getDailyValuePerProvider = (dailyMetric: NexoyaDailyMetric) => {
+  return dailyMetric.providers.reduce(
+    (acc, provider) => ({
+      ...acc,
+      [provider.providerId]: provider.relative,
+    }),
+    {}
+  );
+};
+
+export const getOptiDailyValuePerProvider = (dailyMetric: NexoyaDailyOptimizationMetric) => {
+  return dailyMetric.providers.reduce(
+    (acc, provider) => ({
+      ...acc,
+      [provider.providerId]: provider.relativeExpected,
+    }),
+    {}
+  );
+};
+
+export function usePortfolioToPerformanceChartData(
+  funnelSteps: NexoyaFunnelStepPerformance[],
+  isActivePortfolio: boolean,
+  selectedFunnelStep: PartialFunnelStep
+) {
+  if (!funnelSteps || !selectedFunnelStep) {
+    return {
+      isActivePortfolio: null,
+      defaultOptimizationTarget: null,
+      dataForChart: null,
+      realizedMetricDataPast: null,
+      latestOptimization: null,
+      validationDataFormatted: null,
+      funnelSteps: null,
+      validationTooltip: null,
+      selectedFunnelStep: null,
+    };
+  }
+
+  const optimizationData = optimizationForGivenDate();
+  const targetFunnelStep = funnelSteps?.find((fs) => fs.funnelStepId === selectedFunnelStep?.funnel_step_id);
+  const realizedMetricDataPast: NexoyaDailyMetric[] = targetFunnelStep?.dailyMetrics || [];
+
+  function optimizationForGivenDate() {
+    const targetPerformanceData = targetFunnelStep?.optimizationMetricTotals;
+    return {
+      optimizationPotentialValue: targetPerformanceData?.expectedTotal,
+      optimizationPotentialPercentage: targetPerformanceData?.potentialPercentage,
+      optimizationTooltipDisabled: true,
+    };
+  }
+  const shouldFillTimeGaps = () => {
+    let areThereGaps = false;
+    realizedMetricDataPast.map((dataItem, i) => {
+      const current = dataItem;
+      const next = realizedMetricDataPast[i + 1];
+      const daysCount = diffCount(current?.day, next?.day);
+      if (next && daysCount > 2) {
+        areThereGaps = true;
+      }
+      return dataItem;
+    });
+    return areThereGaps;
+  };
+
+  const getDataForChart = () => {
+    const shouldFillGaps = shouldFillTimeGaps();
+    const realizedData = realizedMetricDataPast.map((dailyMetric) => {
+      // Pre-calculate these to avoid duplication
+      const valuePastCumulative = dailyMetric.providers.reduce(
+        (acc, providerMetric) => acc + providerMetric.cumulative,
+        0
+      );
+      const valuePastRelative = dailyMetric.providers.reduce((acc, providerMetric) => acc + providerMetric.relative, 0);
+
+      return {
+        shouldFillGaps,
+        timestamp: dailyMetric.day.substring(0, 10),
+        valuePastCumulative,
+        valuePastRelative,
+        ...getDailyValuePerProvider(dailyMetric),
+        ...optimizationData,
+      };
+    });
+
+    const expectedData = (targetFunnelStep?.dailyOptimizationMetrics || []).map((dailyMetric) => {
+      // Pre-calculate these to avoid duplication
+      const baselinePerformanceCumulative = dailyMetric.providers.reduce(
+        (acc, providerMetric) => acc + providerMetric.cumulativeBaseline,
+        0
+      );
+      const expectedPerformanceCumulative = dailyMetric.providers.reduce(
+        (acc, providerMetric) => acc + providerMetric.cumulativeExpected,
+        0
+      );
+      const baselinePerformanceRelative = dailyMetric.providers.reduce(
+        (acc, providerMetric) => acc + providerMetric.relativeBaseline,
+        0
+      );
+      const expectedPerformanceRelative = dailyMetric.providers.reduce(
+        (acc, providerMetric) => acc + providerMetric.relativeExpected,
+        0
+      );
+
+      return {
+        timestamp: dailyMetric.day.substring(0, 10),
+        baselinePerformanceCumulative,
+        expectedPerformanceCumulative,
+        baselinePerformanceRelative,
+        expectedPerformanceRelative,
+        ...getOptiDailyValuePerProvider(dailyMetric),
+        optimizationTooltipDisabled: true,
+      };
+    });
+
+    function mergeRealizedDataAndExpectedData(realizedData, expectedData) {
+      const realizedDataCopy = [...realizedData];
+      const expectedDataCopy = [...expectedData];
+
+      function handleRealizedAndExpectedData(realizedData, expectedData, i, j) {
+        if (realizedData.valuePastCumulative && realizedData.valuePastRelative) {
+          removeExpectedData(j);
+        } else if (realizedData.valuePastRelative === 0) {
+          removeRealizedData(i);
+        }
+      }
+
+      function removeExpectedData(index) {
+        expectedDataCopy.splice(index, 1);
+        index--;
+      }
+
+      function removeRealizedData(index) {
+        realizedDataCopy.splice(index, 1);
+        index--;
+      }
+
+      realizedDataCopy.forEach((realizedData, i) => {
+        expectedDataCopy.forEach((expectedData, j) => {
+          if (realizedData.timestamp === expectedData.timestamp) {
+            handleRealizedAndExpectedData(realizedData, expectedData, i, j);
+          }
+        });
+      });
+
+      // Copy the first object from expectedData into the last object in realizedData
+      if (expectedDataCopy.length > 0) {
+        expectedDataCopy.splice(0, 0, {
+          timestamp: realizedDataCopy[realizedDataCopy.length - 1]?.timestamp,
+          baselinePerformanceCumulative: realizedDataCopy[realizedDataCopy.length - 1]?.valuePastCumulative,
+          baselinePerformanceRelative: realizedDataCopy[realizedDataCopy.length - 1]?.valuePastRelative,
+          expectedPerformanceCumulative: realizedDataCopy[realizedDataCopy.length - 1]?.valuePastCumulative,
+          expectedPerformanceRelative: realizedDataCopy[realizedDataCopy.length - 1]?.valuePastRelative,
+          optimizationTooltipDisabled: true,
+        });
+      }
+
+      // Combine the two arrays, realizedData first, then expectedData
+      return [...realizedDataCopy, ...expectedDataCopy];
+    }
+
+    if (isToday(expectedData?.[0]?.timestamp) || isTomorrow(expectedData?.[0]?.timestamp)) {
+      // if optimization starts today or tomorrow, we artifically extend metric data past,
+      // so there is no gap between the data points of two chart lines
+      realizedData.push({
+        ...realizedData[realizedData.length - 1],
+        optimizationTooltipDisabled: true,
+        timestamp: expectedData?.[0]?.timestamp,
+        valuePastCumulative: expectedData?.[0]?.expectedPerformanceCumulative,
+        valuePastRelative: expectedData?.[0]?.expectedPerformanceRelative,
+      });
+    }
+
+    return expectedData?.length ? mergeRealizedDataAndExpectedData(realizedData, expectedData) : realizedData;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  };
+
+  return {
+    isActivePortfolio,
+    defaultOptimizationTarget: null,
+    dataForChart: getDataForChart(),
+    realizedMetricDataPast,
+    latestOptimization: null,
+    validationDataFormatted: null,
+    funnelSteps,
+    validationTooltip: null,
+    selectedFunnelStep,
+  };
+}

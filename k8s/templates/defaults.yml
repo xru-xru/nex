@@ -1,0 +1,15 @@
+#@data/values
+---
+app_name: ui-webapp
+port: 8080
+replicas: 2
+memory:
+  request: '64Mi'
+  limit: '128Mi'
+env_vars:
+  REACT_APP_VERSION: 'SETME'
+cluster_issuer: letsencrypt
+registry:
+image:
+fqdns: []
+node_pool: default

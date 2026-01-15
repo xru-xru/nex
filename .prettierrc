@@ -1,0 +1,17 @@
+{
+  "singleQuote": true,
+  "printWidth": 120,
+  "importOrder": [
+    "react",
+    "<THIRD_PARTY_MODULES>",
+    "types",
+    "(graphql|controllers|context)/(.*)$",
+    "(utils|hooks|constants)/(.*)$",
+    "(components|routes)/(.*)$",
+    "(styles|theme|classes)/(.*)$",
+    "^[./]"
+  ],
+  "plugins": ["prettier-plugin-tailwindcss"],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
+}

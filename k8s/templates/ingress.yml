@@ -1,0 +1,29 @@
+#@ load("@ytt:data", "data")
+#@ for fqdn in data.values.fqdns:
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: #@ data.values.app_name + '-' + fqdn
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    cert-manager.io/cluster-issuer: #@ data.values.cluster_issuer
+spec:
+  tls:
+    - hosts:
+        -  #@ fqdn
+      secretName: #@ 'tls-secret-' + fqdn
+  rules:
+    - host: #@ fqdn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: #@ data.values.app_name
+                port:
+                  number: #@ data.values.port
+#@ end
